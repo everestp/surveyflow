@@ -7,3 +7,6 @@ v1Routes.use("/auth", authRoutes);
 import { surveyRoutes } from "../container.js";
 
 v1Routes.use("/surveys", surveyRoutes);
+import { responseRoutes } from "../container.js";
+
+v1Routes.use("/responses", responseRoutes);

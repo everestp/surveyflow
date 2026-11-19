@@ -41,3 +41,23 @@ const authController = new AuthController(authService);
 export const surveyRoutes = createSurveyRoutes(surveyController, tokenService);
 // Routes
 export const authRoutes = createAuthRoutes(authController, tokenService);
+import { ResponseRepository } from "./modules/response/response.repository.js";
+import { ResponseService } from "./modules/response/response.service.js";
+import { ResponseController } from "./modules/response/response.controller.js";
+import { createResponseRoutes } from "./modules/response/response.routes.js";
+import { SurveyRepository } from "./modules/survey/survey.repository.js";
+
+const responseRepository = new ResponseRepository(pool);
+const responseSurveyRepository = new SurveyRepository(pool);
+
+const responseService = new ResponseService(
+  responseRepository,
+  responseSurveyRepository,
+);
+
+const responseController = new ResponseController(responseService);
+
+export const responseRoutes = createResponseRoutes(
+  responseController,
+  tokenService,
+);
