@@ -15,11 +15,7 @@ export class AnalyticsController {
   };
 
   getResponseTrend: RequestHandler = async (req, res) => {
-    const query = (
-      req as typeof req & {
-        validatedQuery: { days: number };
-      }
-    ).validatedQuery;
+    const query = req.validatedQuery as { days: number };
 
     const trend = await this.analyticsService.getResponseTrend(
       req.user!.id,
@@ -34,7 +30,7 @@ export class AnalyticsController {
 
   getSurveyAnalytics: RequestHandler = async (req, res) => {
     const analytics = await this.analyticsService.getSurveyAnalytics(
-      req.params.surveyId!,
+      String(req.params.surveyId),
       req.user!.id,
     );
 

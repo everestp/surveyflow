@@ -1,23 +1,40 @@
 {
   "name": "surveyflow",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "SurveyFlow - Dynamic Survey Management REST API",
+  "type": "module",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx src/database/migrate.ts",
+    "seed": "tsx src/database/seed.ts"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/everestp/surveyflow.git"
+    "url": "https://github.com/everestp/surveyflow.git"
   },
-  "keywords": [],
-  "type": "commonjs",
+  "keywords": [
+    "survey",
+    "survey-management",
+    "nodejs",
+    "express",
+    "typescript",
+    "postgresql",
+    "rest-api"
+  ],
+  "author": "Everest Paudel",
+  "license": "UNLICENSED",
   "bugs": {
     "url": "https://github.com/everestp/surveyflow/issues"
   },
   "homepage": "https://github.com/everestp/surveyflow#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^18.0.10",
@@ -31,6 +48,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -39,5 +57,9 @@
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true,
+    "esbuild@0.28.2": true
   }
 }

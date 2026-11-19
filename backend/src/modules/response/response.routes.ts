@@ -4,7 +4,7 @@ import type { ResponseController } from "./response.controller.js";
 import type { ITokenService } from "../auth/auth.interfaces.js";
 
 import { createAuthMiddleware } from "../../middlewares/auth.middleware.js";
-import { AppError } from "../../utils/app-error.js";
+import { AppError } from "../../utils/api-error.js";
 
 import {
   submitResponseSchema,

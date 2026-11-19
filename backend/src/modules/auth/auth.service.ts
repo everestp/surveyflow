@@ -6,7 +6,7 @@ import type {
 
 import type { AuthResponse, LoginInput, User } from "./auth.types.js";
 
-import { AppError } from "../../utils/app-error.js";
+import { AppError } from "../../utils/api-error.js";
 import logger from "../../services/logger.service.js";
 
 export class AuthService {

@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import type { IPasswordService } from "../modules/auth/auth.interfaces.js";
 
 export class BcryptPasswordService implements IPasswordService {

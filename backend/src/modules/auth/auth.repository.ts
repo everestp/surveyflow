@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import type { IAuthRepository } from "./auth.interfaces.js";
 import type { AuthUser, CreateUserInput, User } from "./auth.types.js";
-import { AppError } from "../../utils/app-error.js";
+import { AppError } from "../../utils/api-error.js";
 
 interface UserRow {
   id: string;

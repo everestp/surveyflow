@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import type { ITokenService } from "../modules/auth/auth.interfaces.js";
 import type { UserRole } from "../modules/auth/auth.types.js";
-import { AppError } from "../utils/app-error.js";
+import { AppError } from "../utils/api-error.js";
 
 export const createAuthMiddleware = (
   tokenService: ITokenService,

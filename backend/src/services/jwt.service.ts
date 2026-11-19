@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { ITokenService } from "../modules/auth/auth.interfaces.js";
 import type { User, UserRole } from "../modules/auth/auth.types.js";
-import { AppError } from "../utils/app-error.js";
+import { AppError } from "../utils/api-error.js";
 
 export class JwtTokenService implements ITokenService {
   private readonly expiresInSeconds = 3600;

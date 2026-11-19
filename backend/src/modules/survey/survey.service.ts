@@ -8,7 +8,7 @@ import type {
 } from "./survey.types.js";
 
 import logger from "../../services/logger.service.js";
-import { AppError } from "../../utils/app-error.js";
+import { AppError } from "../../utils/api-error.js";
 
 export class SurveyService {
   constructor(private readonly surveyRepository: ISurveyRepository) {}

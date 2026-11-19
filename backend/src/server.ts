@@ -1,4 +1,3 @@
-
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { pool } from "./database/pool.js";
@@ -52,7 +51,7 @@ const startServer = async (): Promise<void> => {
     });
 
     process.on("uncaughtException", (error) => {
-      logger.fatal("Uncaught exception", {
+      logger.error("Uncaught exception", {
         message: error.message,
         stack: error.stack,
       });
@@ -60,7 +59,7 @@ const startServer = async (): Promise<void> => {
       void shutdown("uncaughtException");
     });
   } catch (error) {
-    logger.fatal("Server startup failed", { error });
+    logger.error("Server startup failed", { error });
 
     try {
       await pool.end();
