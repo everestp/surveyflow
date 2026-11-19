@@ -17,7 +17,9 @@ interface UserRow {
 
 export class AuthRepository implements IAuthRepository {
   constructor(private readonly db: Pool) {}
-
+  async createFirstAdmin(input: CreateUserInput): Promise<User> {
+    return this.createUser(input);
+  }
   private mapUser(row: UserRow): User {
     return {
       id: row.id,
