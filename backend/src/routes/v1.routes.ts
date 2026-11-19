@@ -10,3 +10,6 @@ v1Routes.use("/surveys", surveyRoutes);
 import { responseRoutes } from "../container.js";
 
 v1Routes.use("/responses", responseRoutes);
+import { analyticsRoutes } from "../container.js";
+
+v1Routes.use("/analytics", analyticsRoutes);

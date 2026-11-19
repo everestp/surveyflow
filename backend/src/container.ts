@@ -61,3 +61,18 @@ export const responseRoutes = createResponseRoutes(
   responseController,
   tokenService,
 );
+import { AnalyticsRepository } from "./modules/analytics/analytics.repository.js";
+import { AnalyticsService } from "./modules/analytics/analytics.service.js";
+import { AnalyticsController } from "./modules/analytics/analytics.controller.js";
+import { createAnalyticsRoutes } from "./modules/analytics/analytics.routes.js";
+
+const analyticsRepository = new AnalyticsRepository(pool);
+
+const analyticsService = new AnalyticsService(analyticsRepository);
+
+const analyticsController = new AnalyticsController(analyticsService);
+
+export const analyticsRoutes = createAnalyticsRoutes(
+  analyticsController,
+  tokenService,
+);
