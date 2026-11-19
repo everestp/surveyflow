@@ -4,11 +4,11 @@
   "private": true,
   "description": "SurveyFlow - Dynamic Survey Management REST API",
   "type": "module",
-  "main": "dist/server.js",
+  "main": "build/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node build/server.js",
     "typecheck": "tsc --noEmit",
     "migrate": "tsx src/database/migrate.ts",
     "seed": "tsx src/database/seed.ts"
@@ -57,7 +57,7 @@
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^5.9.3"
   },
   "allowScripts": {
     "bcrypt@6.0.0": true,
