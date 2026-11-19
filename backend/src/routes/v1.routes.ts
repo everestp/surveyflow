@@ -1,15 +1,18 @@
 import { Router } from "express";
-import { authRoutes } from "../container.js";
 
-export const v1Routes = Router();
+import {
+  authRoutes,
+  surveyRoutes,
+  responseRoutes,
+  analyticsRoutes,
+} from "../container.js";
 
+const v1Routes = Router();
+
+// API v1 modules
 v1Routes.use("/auth", authRoutes);
-import { surveyRoutes } from "../container.js";
-
 v1Routes.use("/surveys", surveyRoutes);
-import { responseRoutes } from "../container.js";
-
 v1Routes.use("/responses", responseRoutes);
-import { analyticsRoutes } from "../container.js";
-
 v1Routes.use("/analytics", analyticsRoutes);
+
+export { v1Routes };
