@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import type { SurveyService } from "./survey.service.js";
+import { AppError } from "../../utils/api-error.js";
 
 type ValidatedListQuery = {
   page: number;
@@ -7,9 +8,19 @@ type ValidatedListQuery = {
   status?: "draft" | "published" | "archived";
 };
 
-function getValidatedQuery(req: Parameters<RequestHandler>[0]): ValidatedListQuery {
+function getValidatedQuery(
+  req: Parameters<RequestHandler>[0],
+): ValidatedListQuery {
   return (req as typeof req & { validatedQuery: ValidatedListQuery })
     .validatedQuery;
+}
+
+function getIdParam(param: string | string[] | undefined): string {
+  const id = Array.isArray(param) ? param[0] : param;
+  if (!id || id.trim().length === 0) {
+    throw new AppError(400, "Invalid survey ID", "INVALID_ID");
+  }
+  return id;
 }
 
 export class SurveyController {
@@ -48,7 +59,7 @@ export class SurveyController {
 
   getById: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.getById(
-      String(req.params.id!),
+      getIdParam(req.params.id),
       req.user?.id,
     );
 
@@ -60,7 +71,7 @@ export class SurveyController {
 
   update: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.update(
-      String(req.params.id!),
+      getIdParam(req.params.id),
       req.user!.id,
       req.body,
     );
@@ -73,7 +84,7 @@ export class SurveyController {
   };
 
   delete: RequestHandler = async (req, res) => {
-    await this.surveyService.delete(String(req.params.id!), req.user!.id);
+    await this.surveyService.delete(getIdParam(req.params.id), req.user!.id);
 
     res.status(200).json({
       success: true,
@@ -83,7 +94,7 @@ export class SurveyController {
 
   publish: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.publish(
-      String(req.params.id!),
+      getIdParam(req.params.id),
       req.user!.id,
     );
 

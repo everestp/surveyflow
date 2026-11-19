@@ -56,6 +56,9 @@ export const createSurveyRoutes = (
     next();
   };
 
+  // Authenticated user's own surveys (must come BEFORE /:id)
+  router.get("/mine", authenticate, validateQuery, controller.getAllByUserId);
+
   // Publicly readable when published (optional auth attaches req.user if logged in)
   router.get("/", optionalAuthenticate, validateQuery, controller.getAll);
   router.get("/:id", optionalAuthenticate, controller.getById);
