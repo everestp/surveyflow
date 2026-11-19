@@ -8,6 +8,16 @@ import { createAuthRoutes } from "./modules/auth/auth.routes.js";
 
 import { BcryptPasswordService } from "./services/password.service.js";
 import { JwtTokenService } from "./services/jwt.service.js";
+import { SurveyRepository } from "./modules/survey/survey.repository.js";
+import { SurveyService } from "./modules/survey/survey.service.js";
+import { SurveyController } from "./modules/survey/survey.controller.js";
+import { createSurveyRoutes } from "./modules/survey/survey.routes.js";
+
+const surveyRepository = new SurveyRepository(pool);
+
+const surveyService = new SurveyService(surveyRepository);
+
+const surveyController = new SurveyController(surveyService);
 
 // Infrastructure implementations
 const authRepository = new AuthRepository(pool);
@@ -28,6 +38,6 @@ const authService = new AuthService(
 
 // HTTP layer
 const authController = new AuthController(authService);
-
+export const surveyRoutes = createSurveyRoutes(surveyController, tokenService);
 // Routes
 export const authRoutes = createAuthRoutes(authController, tokenService);
