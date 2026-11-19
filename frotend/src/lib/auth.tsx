@@ -8,25 +8,32 @@ import {
 } from "react";
 import { apiRequest, getToken, setToken } from "./api";
 
-export interface AdminUser {
+export type UserRole = "admin" | "user";
+
+export interface AuthUser {
   id: string;
   email: string;
+  role?: UserRole;
   createdAt?: string;
 }
 
+export type AdminUser = AuthUser;
+
 interface AuthResponse {
   accessToken: string;
-  user?: AdminUser;
+  user?: AuthUser;
 }
 
 interface MeResponse {
-  user?: AdminUser;
+  user?: AuthUser;
   id?: string;
   email?: string;
+  role?: UserRole;
+  createdAt?: string;
 }
 
 interface AuthContextValue {
-  user: AdminUser | null;
+  user: AuthUser | null;
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
@@ -38,18 +45,23 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function normalizeUser(data: MeResponse | null | undefined): AdminUser | null {
+function normalizeUser(data: MeResponse | null | undefined): AuthUser | null {
   if (!data) return null;
   if (data.user && data.user.id) return data.user;
   if (data.id && data.email) {
-    return { id: data.id, email: data.email };
+    return {
+      id: data.id,
+      email: data.email,
+      role: data.role,
+      createdAt: data.createdAt,
+    };
   }
   return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getToken());
-  const [user, setUser] = useState<AdminUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState<boolean>(() => Boolean(getToken()));
 
   const applyToken = useCallback((nextToken: string | null) => {
@@ -71,7 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const data = await apiRequest<MeResponse>("/auth/me");
-      setUser(normalizeUser(data));
+      const normalized = normalizeUser(data);
+      if (!normalized) {
+        applyToken(null);
+        return;
+      }
+      setUser(normalized);
     } catch {
       applyToken(null);
     } finally {

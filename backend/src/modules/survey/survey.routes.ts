@@ -20,6 +20,14 @@ export const createSurveyRoutes = (
 
   const authenticate = createAuthMiddleware(tokenService);
 
+  const optionalAuthenticate: RequestHandler = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return next();
+    }
+    return authenticate(req, res, next);
+  };
+
   const validateBody =
     (
       schema: typeof createSurveySchema | typeof updateSurveySchema,
@@ -48,14 +56,25 @@ export const createSurveyRoutes = (
     next();
   };
 
-  router.use(authenticate);
+  // Publicly readable when published (optional auth attaches req.user if logged in)
+  router.get("/", optionalAuthenticate, validateQuery, controller.getAll);
+  router.get("/:id", optionalAuthenticate, controller.getById);
 
-  router.post("/", validateBody(createSurveySchema), controller.create);
-  router.get("/", validateQuery, controller.getAll);
-  router.get("/:id", controller.getById);
-  router.patch("/:id", validateBody(updateSurveySchema), controller.update);
-  router.delete("/:id", controller.delete);
-  router.patch("/:id/publish", controller.publish);
+  // Admin-only routes
+  router.post(
+    "/",
+    authenticate,
+    validateBody(createSurveySchema),
+    controller.create,
+  );
+  router.patch(
+    "/:id",
+    authenticate,
+    validateBody(updateSurveySchema),
+    controller.update,
+  );
+  router.delete("/:id", authenticate, controller.delete);
+  router.patch("/:id/publish", authenticate, controller.publish);
 
   return router;
 };

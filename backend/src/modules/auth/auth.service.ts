@@ -3,11 +3,13 @@ import type {
   IPasswordService,
   ITokenService,
 } from "./auth.interfaces.js";
-
 import type { AuthResponse, LoginInput, User } from "./auth.types.js";
-
 import { AppError } from "../../utils/api-error.js";
 import logger from "../../services/logger.service.js";
+
+interface PgErrorLike {
+  code?: string;
+}
 
 export class AuthService {
   constructor(
@@ -18,16 +20,32 @@ export class AuthService {
 
   async register(email: string, password: string): Promise<AuthResponse> {
     const normalizedEmail = email.trim().toLowerCase();
-
     const passwordHash = await this.passwordService.hash(password);
 
-    const user = await this.authRepository.createFirstAdmin({
-      email: normalizedEmail,
-      passwordHash,
-    });
+    let user: User;
 
-    logger.info("Initial administrator registered", {
+    try {
+      user = await this.authRepository.createUser({
+        email: normalizedEmail,
+        passwordHash,
+      });
+    } catch (error) {
+      const pgError = error as PgErrorLike;
+
+      if (pgError?.code === "23505") {
+        throw new AppError(
+          409,
+          "An account with this email already exists",
+          "EMAIL_ALREADY_EXISTS",
+        );
+      }
+
+      throw error;
+    }
+
+    logger.info("User registered", {
       userId: user.id,
+      role: user.role,
     });
 
     return this.createAuthResponse(user);
@@ -35,7 +53,6 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<AuthResponse> {
     const email = input.email.trim().toLowerCase();
-
     const user = await this.authRepository.findByEmail(email);
 
     if (!user) {
@@ -59,8 +76,9 @@ export class AuthService {
       );
     }
 
-    logger.info("Administrator logged in", {
+    logger.info("User logged in", {
       userId: user.id,
+      role: user.role,
     });
 
     return this.createAuthResponse(user);

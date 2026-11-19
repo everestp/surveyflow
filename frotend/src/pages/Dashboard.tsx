@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiRequest, ApiError } from "../lib/api";
+import { ApiError, apiRequest } from "../lib/api";
+import { useAuth, type AuthUser } from "../lib/auth";
 
 export interface SurveySummary {
   id: string;
   title: string;
-  description?: string;
-  status: "draft" | "published" | string;
+  description?: string | null;
+  status: "draft" | "published" | "archived" | string;
   responseCount?: number;
   createdAt?: string;
+  createdBy?: string;
+  userId?: string;
+  ownerId?: string;
 }
 
 interface SurveysResponse {
   surveys?: SurveySummary[];
   items?: SurveySummary[];
-  total?: number;
 }
 
 interface OverviewStats {
@@ -57,7 +60,19 @@ function normalizeTrend(
   return [];
 }
 
+function isOwnedByCurrentUser(
+  survey: SurveySummary,
+  user: AuthUser | null,
+): boolean {
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  const ownerId = survey.createdBy || survey.userId || survey.ownerId;
+  if (!ownerId) return true;
+  return ownerId === user.id;
+}
+
 export function Dashboard({ onNavigate }: DashboardProps) {
+  const { user } = useAuth();
   const [surveys, setSurveys] = useState<SurveySummary[]>([]);
   const [overview, setOverview] = useState<OverviewStats>({});
   const [trendTotal30d, setTrendTotal30d] = useState<number>(0);
@@ -66,22 +81,27 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const loadDashboard = useCallback(async () => {
+  const loadUserDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [surveysData, overviewData, trendData] = await Promise.all([
-        apiRequest<SurveysResponse | SurveySummary[]>(
-          "/surveys?page=1&limit=20",
-        ),
+      const surveysEndpoint =
+        user?.role === "admin"
+          ? "/surveys?page=1&limit=20"
+          : "/surveys/mine?page=1&limit=20";
+
+      const [mineData, overviewData, trendData] = await Promise.all([
+        apiRequest<SurveysResponse | SurveySummary[]>(surveysEndpoint),
         apiRequest<OverviewStats>("/analytics/overview").catch(() => ({})),
         apiRequest<TrendResponse | TrendPoint[]>(
           "/analytics/responses/trend?days=30",
         ).catch(() => []),
       ]);
 
-      const list = normalizeSurveys(surveysData);
-      setSurveys(list);
+      const filteredSurveys = normalizeSurveys(mineData).filter((s) =>
+        isOwnedByCurrentUser(s, user),
+      );
+      setSurveys(filteredSurveys);
       setOverview(overviewData || {});
 
       const points = normalizeTrend(trendData);
@@ -97,18 +117,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+    loadUserDashboard();
+  }, [loadUserDashboard]);
 
   const handlePublish = async (id: string) => {
     setBusyId(id);
     setError(null);
     try {
       await apiRequest(`/surveys/${id}/publish`, { method: "PATCH" });
-      await loadDashboard();
+      await loadUserDashboard();
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to publish survey",
@@ -123,7 +143,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     setError(null);
     try {
       await apiRequest(`/surveys/${id}`, { method: "DELETE" });
-      await loadDashboard();
+      await loadUserDashboard();
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Failed to delete survey",
@@ -156,9 +176,20 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Surveys</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-neutral-900">
+              My Dashboard
+            </h1>
+            {user?.role && (
+              <span className="rounded border border-neutral-300 bg-neutral-100 px-2 py-0.5 text-[11px] font-medium uppercase text-neutral-700">
+                {user.role}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-neutral-500">
-            Manage drafts, publish public links, and inspect responses.
+            {user?.role === "admin"
+              ? `All surveys — signed in as ${user.email}.`
+              : `Surveys created by ${user?.email || "your account"}.`}
           </p>
         </div>
         <button
@@ -172,7 +203,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded border border-neutral-200 bg-white p-3.5">
-          <div className="text-xs text-neutral-500">Total surveys</div>
+          <div className="text-xs text-neutral-500">
+            {user?.role === "admin" ? "Total surveys" : "My surveys"}
+          </div>
           <div className="mt-1 text-xl font-semibold text-neutral-900">
             {totalSurveys}
           </div>
@@ -205,10 +238,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       <div className="mt-6 overflow-x-auto rounded border border-neutral-200 bg-white">
         {loading ? (
-          <div className="p-6 text-xs text-neutral-500">Loading surveys...</div>
+          <div className="p-6 text-xs text-neutral-500">
+            Loading your surveys...
+          </div>
         ) : surveys.length === 0 ? (
           <div className="p-6 text-xs text-neutral-500">
-            No surveys yet. Create one to get started.
+            You have not created any surveys yet.
           </div>
         ) : (
           <table className="w-full border-collapse text-left text-sm">
@@ -223,6 +258,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             <tbody className="divide-y divide-neutral-200">
               {surveys.map((survey) => {
                 const isPublished = survey.status === "published";
+                const canDelete =
+                  !isPublished && isOwnedByCurrentUser(survey, user);
                 const isBusy = busyId === survey.id;
 
                 return (
@@ -275,14 +312,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             >
                               Publish
                             </button>
-                            <button
-                              type="button"
-                              disabled={isBusy}
-                              onClick={() => handleDelete(survey.id)}
-                              className="rounded border border-neutral-300 px-2.5 py-1 text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
-                            >
-                              Delete
-                            </button>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleDelete(survey.id)}
+                                className="rounded border border-neutral-300 px-2.5 py-1 text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            )}
                           </>
                         )}
                       </div>

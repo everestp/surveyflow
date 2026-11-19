@@ -1,12 +1,5 @@
 import { useAuth } from "../lib/auth";
 
-export type RoutePath =
-  | "/"
-  | "/login"
-  | "/builder"
-  | `/surveys/${string}/results`
-  | `/s/${string}`;
-
 interface NavbarProps {
   currentPath: string;
   onNavigate: (path: string) => void;
@@ -17,7 +10,7 @@ export function Navbar({ currentPath, onNavigate }: NavbarProps) {
 
   const handleLogout = () => {
     logout();
-    onNavigate("/login");
+    onNavigate("/");
   };
 
   return (
@@ -25,48 +18,70 @@ export function Navbar({ currentPath, onNavigate }: NavbarProps) {
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <button
           type="button"
-          onClick={() => onNavigate(isAuthenticated ? "/" : "/login")}
+          onClick={() => onNavigate("/")}
           className="text-sm font-semibold tracking-tight text-neutral-900"
         >
           SurveyFlow
         </button>
 
-        {isAuthenticated && (
-          <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex items-center gap-4 text-sm">
+          <button
+            type="button"
+            onClick={() => onNavigate("/")}
+            className={
+              currentPath === "/"
+                ? "font-medium text-neutral-900 underline underline-offset-4"
+                : "text-neutral-600 hover:text-neutral-900"
+            }
+          >
+            Feed
+          </button>
+
+          {isAuthenticated ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onNavigate("/dashboard")}
+                className={
+                  currentPath === "/dashboard"
+                    ? "font-medium text-neutral-900 underline underline-offset-4"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }
+              >
+                Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate("/builder")}
+                className={
+                  currentPath === "/builder"
+                    ? "font-medium text-neutral-900 underline underline-offset-4"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }
+              >
+                New Survey
+              </button>
+              <span className="hidden text-xs text-neutral-500 sm:inline">
+                {user?.email}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
             <button
               type="button"
-              onClick={() => onNavigate("/")}
-              className={
-                currentPath === "/"
-                  ? "font-medium text-neutral-900 underline underline-offset-4"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }
+              onClick={() => onNavigate("/login")}
+              className="rounded bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800"
             >
-              Dashboard
+              Sign in
             </button>
-            <button
-              type="button"
-              onClick={() => onNavigate("/builder")}
-              className={
-                currentPath === "/builder"
-                  ? "font-medium text-neutral-900 underline underline-offset-4"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }
-            >
-              New Survey
-            </button>
-            <span className="hidden text-xs text-neutral-500 sm:inline">
-              {user?.email}
-            </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
-            >
-              Sign out
-            </button>
-          </nav>
-        )}
+          )}
+        </nav>
       </div>
     </header>
   );

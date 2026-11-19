@@ -1,6 +1,17 @@
 import type { RequestHandler } from "express";
 import type { SurveyService } from "./survey.service.js";
 
+type ValidatedListQuery = {
+  page: number;
+  limit: number;
+  status?: "draft" | "published" | "archived";
+};
+
+function getValidatedQuery(req: Parameters<RequestHandler>[0]): ValidatedListQuery {
+  return (req as typeof req & { validatedQuery: ValidatedListQuery })
+    .validatedQuery;
+}
+
 export class SurveyController {
   constructor(private readonly surveyService: SurveyService) {}
 
@@ -15,17 +26,18 @@ export class SurveyController {
   };
 
   getAll: RequestHandler = async (req, res) => {
-    const result = await this.surveyService.getAll(
+    const result = await this.surveyService.getAll(getValidatedQuery(req));
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  };
+
+  getAllByUserId: RequestHandler = async (req, res) => {
+    const result = await this.surveyService.getAllByUserId(
       req.user!.id,
-      (
-        req as typeof req & {
-          validatedQuery: {
-            page: number;
-            limit: number;
-            status?: "draft" | "published" | "archived";
-          };
-        }
-      ).validatedQuery,
+      getValidatedQuery(req),
     );
 
     res.status(200).json({
@@ -37,7 +49,7 @@ export class SurveyController {
   getById: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.getById(
       String(req.params.id!),
-      req.user!.id,
+      req.user?.id,
     );
 
     res.status(200).json({
@@ -48,7 +60,7 @@ export class SurveyController {
 
   update: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.update(
-      req.params.id!,
+      String(req.params.id!),
       req.user!.id,
       req.body,
     );
@@ -61,7 +73,7 @@ export class SurveyController {
   };
 
   delete: RequestHandler = async (req, res) => {
-    await this.surveyService.delete(req.params.id!, req.user!.id);
+    await this.surveyService.delete(String(req.params.id!), req.user!.id);
 
     res.status(200).json({
       success: true,
@@ -71,7 +83,7 @@ export class SurveyController {
 
   publish: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.publish(
-      req.params.id!,
+      String(req.params.id!),
       req.user!.id,
     );
 

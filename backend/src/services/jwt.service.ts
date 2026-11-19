@@ -1,7 +1,17 @@
 import jwt from "jsonwebtoken";
 import type { ITokenService } from "../modules/auth/auth.interfaces.js";
-import type { User, UserRole } from "../modules/auth/auth.types.js";
+import type {
+  AuthTokenPayload,
+  User,
+  UserRole,
+} from "../modules/auth/auth.types.js";
 import { AppError } from "../utils/api-error.js";
+
+const VALID_ROLES: ReadonlySet<UserRole> = new Set(["admin", "user"]);
+
+function isUserRole(value: unknown): value is UserRole {
+  return typeof value === "string" && VALID_ROLES.has(value as UserRole);
+}
 
 export class JwtTokenService implements ITokenService {
   private readonly expiresInSeconds = 3600;
@@ -28,11 +38,7 @@ export class JwtTokenService implements ITokenService {
     );
   }
 
-  verify(token: string): {
-    sub: string;
-    email: string;
-    role: UserRole;
-  } {
+  verify(token: string): AuthTokenPayload {
     try {
       const payload = jwt.verify(token, this.secret, {
         issuer: this.issuer,
@@ -43,7 +49,7 @@ export class JwtTokenService implements ITokenService {
         typeof payload === "string" ||
         typeof payload.sub !== "string" ||
         typeof payload.email !== "string" ||
-        payload.role !== "admin"
+        !isUserRole(payload.role)
       ) {
         throw new Error("Invalid JWT payload");
       }
@@ -51,7 +57,7 @@ export class JwtTokenService implements ITokenService {
       return {
         sub: payload.sub,
         email: payload.email,
-        role: "admin",
+        role: payload.role,
       };
     } catch {
       throw new AppError(

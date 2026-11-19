@@ -40,6 +40,7 @@ export interface Survey {
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
+  responseCount: Number;
 }
 
 export interface CreateSurveyInput {
@@ -59,4 +60,16 @@ export interface SurveyListQuery {
   page: number;
   limit: number;
   status?: SurveyStatus;
+}
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface PaginatedSurveys extends PaginationMeta {
+  surveys: Survey[];
 }

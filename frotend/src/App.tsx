@@ -3,6 +3,7 @@ import { Navbar } from "./components/Navbar";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { Builder } from "./pages/Builder";
 import { Dashboard } from "./pages/Dashboard";
+import { Feed } from "./pages/Feed";
 import { Login } from "./pages/Login";
 import { SurveyResults } from "./pages/SurveyResults";
 import { TakeSurvey } from "./pages/TakeSurvey";
@@ -18,7 +19,7 @@ function parseResultsSurveyId(pathname: string): string | null {
 }
 
 function AppShell() {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const [path, setPath] = useState<string>(
     () => window.location.pathname || "/",
   );
@@ -38,19 +39,24 @@ function AppShell() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  const publicSurveyId = parsePublicSurveyId(path);
-  if (publicSurveyId) {
-    return (
-      <div className="min-h-screen bg-neutral-50 text-neutral-900">
-        <Navbar currentPath={path} onNavigate={navigate} />
-        <main>
-          <TakeSurvey surveyId={publicSurveyId} />
-        </main>
-      </div>
-    );
-  }
+  // Redirect already-authenticated users away from /login.
+  useEffect(() => {
+    if (!loading && isAuthenticated && path === "/login") {
+      navigate("/dashboard");
+    }
+  }, [isAuthenticated, loading, navigate, path]);
 
-  if (loading) {
+  const publicSurveyId = parsePublicSurveyId(path);
+  const resultsSurveyId = parseResultsSurveyId(path);
+
+  const requiresAuth =
+    path === "/dashboard" || path === "/builder" || Boolean(resultsSurveyId);
+
+  // Flip this to `user?.role !== "admin"` if Builder or Results should be admin-only.
+  const requiresAdmin = false;
+  const isAuthorized = !requiresAdmin || user?.role === "admin";
+
+  if (requiresAuth && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-neutral-50 text-xs text-neutral-500">
         Loading...
@@ -58,29 +64,55 @@ function AppShell() {
     );
   }
 
-  if (!isAuthenticated || path === "/login") {
+  if (path === "/login" || (requiresAuth && !isAuthenticated)) {
     return (
       <div className="min-h-screen bg-neutral-50 text-neutral-900">
         <Navbar currentPath="/login" onNavigate={navigate} />
         <main>
-          <Login onSuccess={() => navigate("/")} />
+          <Login onSuccess={() => navigate("/dashboard")} />
         </main>
       </div>
     );
   }
 
-  const resultsSurveyId = parseResultsSurveyId(path);
+  if (requiresAuth && !isAuthorized) {
+    return (
+      <div className="min-h-screen bg-neutral-50 text-neutral-900">
+        <Navbar currentPath={path} onNavigate={navigate} />
+        <main className="mx-auto mt-12 max-w-md rounded border border-neutral-200 bg-white p-6 text-center">
+          <h1 className="text-base font-semibold text-neutral-900">
+            Admin access required
+          </h1>
+          <p className="mt-1 text-xs text-neutral-500">
+            Your account ({user?.role ?? "user"}) does not have permission to
+            view this page.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="mt-4 rounded bg-neutral-900 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800"
+          >
+            Back to Feed
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <Navbar currentPath={path} onNavigate={navigate} />
       <main>
-        {path === "/builder" ? (
+        {publicSurveyId ? (
+          <TakeSurvey surveyId={publicSurveyId} onNavigate={navigate} />
+        ) : path === "/dashboard" ? (
+          <Dashboard onNavigate={navigate} />
+        ) : path === "/builder" ? (
           <Builder onNavigate={navigate} />
         ) : resultsSurveyId ? (
           <SurveyResults surveyId={resultsSurveyId} onNavigate={navigate} />
         ) : (
-          <Dashboard onNavigate={navigate} />
+          <Feed onNavigate={navigate} />
         )}
       </main>
     </div>

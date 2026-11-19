@@ -1,5 +1,4 @@
 import type { ISurveyRepository } from "./survey.interfaces.js";
-
 import type {
   CreateSurveyInput,
   Survey,
@@ -26,18 +25,32 @@ export class SurveyService {
     return survey;
   }
 
-  async getById(id: string, userId: string): Promise<Survey> {
+  async getById(id: string, userId?: string): Promise<Survey> {
     const survey = await this.surveyRepository.findById(id);
 
-    if (!survey || survey.createdBy !== userId) {
+    if (!survey) {
+      throw new AppError(404, "Survey not found", "SURVEY_NOT_FOUND");
+    }
+
+    const isPublished = survey.status === "published";
+    const isOwner = Boolean(userId && survey.createdBy === userId);
+
+    if (!isPublished && !isOwner) {
       throw new AppError(404, "Survey not found", "SURVEY_NOT_FOUND");
     }
 
     return survey;
   }
 
-  async getAll(userId: string, query: SurveyListQuery) {
-    return this.surveyRepository.findAll(userId, query);
+  async getAll(query: SurveyListQuery) {
+    return this.surveyRepository.findAll({
+      ...query,
+      status: "published",
+    });
+  }
+
+  async getAllByUserId(userId: string, query: SurveyListQuery) {
+    return this.surveyRepository.findAllByUserId(userId, query);
   }
 
   async update(

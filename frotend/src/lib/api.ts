@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+const BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
 const TOKEN_KEY = "surveyflow_access_token";
 
 export function getToken(): string | null {
@@ -25,14 +26,23 @@ export class ApiError extends Error {
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, "body"> {
+export interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   auth?: boolean;
 }
 
+function resolveUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  const normalizedBase = BASE_URL.replace(/\/+$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
+
 export async function apiRequest<T>(
   path: string,
-  { body, auth = true, headers, ...init }: RequestOptions = {},
+  { body, auth = true, headers, ...init }: RequestOptions = {}
 ): Promise<T> {
   const reqHeaders = new Headers(headers);
 
@@ -47,17 +57,22 @@ export async function apiRequest<T>(
     }
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(resolveUrl(path), {
     ...init,
     headers: reqHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  let payload: any = null;
+  let payload: unknown = null;
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     payload = await response.json().catch(() => null);
   }
+
+  const bodyObj =
+    payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>)
+      : null;
 
   if (response.status === 401 && auth) {
     setToken(null);
@@ -66,14 +81,14 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const message =
-      payload?.message ||
-      payload?.error ||
+      (typeof bodyObj?.message === "string" && bodyObj.message) ||
+      (typeof bodyObj?.error === "string" && bodyObj.error) ||
       `Request failed (${response.status})`;
     throw new ApiError(message, response.status, payload);
   }
 
-  if (payload && typeof payload === "object" && "data" in payload) {
-    return payload.data as T;
+  if (bodyObj && "data" in bodyObj) {
+    return bodyObj.data as T;
   }
 
   return payload as T;

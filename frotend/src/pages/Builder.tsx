@@ -63,6 +63,16 @@ function hasOptions(type: QuestionType): boolean {
   return type === "single_choice" || type === "multiple_choice";
 }
 
+function defaultValueForQuestion(
+  q: SurveyQuestion | undefined,
+): string | number | boolean {
+  if (!q) return "";
+  if (q.type === "yes_no") return true;
+  if (q.type === "rating") return 5;
+  if (q.options && q.options.length > 0) return q.options[0];
+  return "";
+}
+
 export function Builder({ onNavigate }: BuilderProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -149,34 +159,51 @@ export function Builder({ onNavigate }: BuilderProps) {
     );
   };
 
-  const toggleCondition = (q: SurveyQuestion, enabled: boolean) => {
+  const toggleCondition = (
+    q: SurveyQuestion,
+    index: number,
+    enabled: boolean,
+  ) => {
     if (!enabled) {
       updateQuestion(q.id, { condition: undefined });
       return;
     }
-    const candidates = questions.filter((item) => item.id !== q.id);
-    const first = candidates[0];
+    const priorQuestions = questions.slice(0, index);
+    const first = priorQuestions[0];
     if (!first) return;
-
-    const defaultVal =
-      first.type === "yes_no"
-        ? true
-        : first.type === "rating"
-          ? 5
-          : (first.options?.[0] ?? "");
 
     updateQuestion(q.id, {
       condition: {
         questionId: first.id,
         operator: "equals",
-        value: defaultVal,
+        value: defaultValueForQuestion(first),
       },
     });
   };
 
-  const updateCondition = (
+  const handleConditionSourceChange = (
+    targetQuestionId: string,
+    newSourceId: string,
+  ) => {
+    const nextSource = questions.find((item) => item.id === newSourceId);
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== targetQuestionId || !q.condition) return q;
+        return {
+          ...q,
+          condition: {
+            ...q.condition,
+            questionId: newSourceId,
+            value: defaultValueForQuestion(nextSource),
+          },
+        };
+      }),
+    );
+  };
+
+  const updateConditionValue = (
     questionId: string,
-    patch: Partial<QuestionCondition>,
+    value: string | number | boolean,
   ) => {
     setQuestions((prev) =>
       prev.map((q) => {
@@ -185,7 +212,25 @@ export function Builder({ onNavigate }: BuilderProps) {
           ...q,
           condition: {
             ...q.condition,
-            ...patch,
+            value,
+          },
+        };
+      }),
+    );
+  };
+
+  const updateConditionOperator = (
+    questionId: string,
+    operator: "equals" | "not_equals",
+  ) => {
+    setQuestions((prev) =>
+      prev.map((q) => {
+        if (q.id !== questionId || !q.condition) return q;
+        return {
+          ...q,
+          condition: {
+            ...q.condition,
+            operator,
           },
         };
       }),
@@ -340,7 +385,7 @@ export function Builder({ onNavigate }: BuilderProps) {
 
       <div className="mt-6 space-y-4">
         {questions.map((q, index) => {
-          const otherQuestions = questions.filter((item) => item.id !== q.id);
+          const priorQuestions = questions.slice(0, index);
           const sourceQuestion = questions.find(
             (item) => item.id === q.condition?.questionId,
           );
@@ -511,12 +556,14 @@ export function Builder({ onNavigate }: BuilderProps) {
                   Required question
                 </label>
 
-                {otherQuestions.length > 0 && (
+                {priorQuestions.length > 0 && (
                   <label className="inline-flex items-center gap-2 text-neutral-700">
                     <input
                       type="checkbox"
                       checked={Boolean(q.condition)}
-                      onChange={(e) => toggleCondition(q, e.target.checked)}
+                      onChange={(e) =>
+                        toggleCondition(q, index, e.target.checked)
+                      }
                       className="rounded border-neutral-300 text-neutral-900 focus:ring-0"
                     />
                     Conditional visibility
@@ -524,7 +571,7 @@ export function Builder({ onNavigate }: BuilderProps) {
                 )}
               </div>
 
-              {q.condition && otherQuestions.length > 0 && (
+              {q.condition && priorQuestions.length > 0 && (
                 <div className="grid gap-2 rounded border border-neutral-200 bg-neutral-50 p-3 sm:grid-cols-3">
                   <div>
                     <label className="block text-[11px] text-neutral-500">
@@ -533,11 +580,11 @@ export function Builder({ onNavigate }: BuilderProps) {
                     <select
                       value={q.condition.questionId}
                       onChange={(e) =>
-                        updateCondition(q.id, { questionId: e.target.value })
+                        handleConditionSourceChange(q.id, e.target.value)
                       }
                       className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
                     >
-                      {otherQuestions.map((candidate, cIdx) => (
+                      {priorQuestions.map((candidate, cIdx) => (
                         <option key={candidate.id} value={candidate.id}>
                           Q{cIdx + 1}: {candidate.title || "Untitled"}
                         </option>
@@ -552,9 +599,10 @@ export function Builder({ onNavigate }: BuilderProps) {
                     <select
                       value={q.condition.operator}
                       onChange={(e) =>
-                        updateCondition(q.id, {
-                          operator: e.target.value as "equals" | "not_equals",
-                        })
+                        updateConditionOperator(
+                          q.id,
+                          e.target.value as "equals" | "not_equals",
+                        )
                       }
                       className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
                     >
@@ -571,9 +619,7 @@ export function Builder({ onNavigate }: BuilderProps) {
                       <select
                         value={String(q.condition.value)}
                         onChange={(e) =>
-                          updateCondition(q.id, {
-                            value: e.target.value === "true",
-                          })
+                          updateConditionValue(q.id, e.target.value === "true")
                         }
                         className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
                       >
@@ -584,9 +630,7 @@ export function Builder({ onNavigate }: BuilderProps) {
                       <select
                         value={String(q.condition.value)}
                         onChange={(e) =>
-                          updateCondition(q.id, {
-                            value: Number(e.target.value),
-                          })
+                          updateConditionValue(q.id, Number(e.target.value))
                         }
                         className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
                       >
@@ -596,12 +640,28 @@ export function Builder({ onNavigate }: BuilderProps) {
                           </option>
                         ))}
                       </select>
+                    ) : sourceQuestion &&
+                      hasOptions(sourceQuestion.type) &&
+                      (sourceQuestion.options?.length ?? 0) > 0 ? (
+                      <select
+                        value={String(q.condition.value)}
+                        onChange={(e) =>
+                          updateConditionValue(q.id, e.target.value)
+                        }
+                        className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"
+                      >
+                        {(sourceQuestion.options ?? []).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input
                         type="text"
                         value={String(q.condition.value)}
                         onChange={(e) =>
-                          updateCondition(q.id, { value: e.target.value })
+                          updateConditionValue(q.id, e.target.value)
                         }
                         placeholder="Matching answer value"
                         className="mt-1 w-full rounded border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-900"

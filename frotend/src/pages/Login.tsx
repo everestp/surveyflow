@@ -20,10 +20,11 @@ export function Login({ onSuccess }: LoginProps) {
     setSubmitting(true);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       if (mode === "login") {
-        await login(email.trim(), password);
+        await login(normalizedEmail, password);
       } else {
-        await register(email.trim(), password);
+        await register(normalizedEmail, password);
       }
       onSuccess();
     } catch (err) {
@@ -73,42 +74,57 @@ export function Login({ onSuccess }: LoginProps) {
       </div>
 
       <h1 className="text-base font-semibold text-neutral-900">
-        {mode === "login" ? "Admin sign in" : "Create admin account"}
+        {mode === "login" ? "Sign in" : "Create account"}
       </h1>
       <p className="mt-1 text-xs text-neutral-500">
         {mode === "login"
-          ? "Access your surveys and analytics."
-          : "Create an account to build surveys and view results."}
+          ? "Sign in with your account to continue."
+          : "Register a new account. The first registered account receives admin access."}
       </p>
 
       {error && (
-        <div className="mt-4 rounded border border-neutral-900 bg-neutral-100 px-3 py-2 text-xs text-neutral-900">
+        <div
+          role="alert"
+          className="mt-4 rounded border border-neutral-900 bg-neutral-100 px-3 py-2 text-xs text-neutral-900"
+        >
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-3">
         <div>
-          <label className="block text-xs font-medium text-neutral-700">
+          <label
+            htmlFor="auth-email"
+            className="block text-xs font-medium text-neutral-700"
+          >
             Email
           </label>
           <input
+            id="auth-email"
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@example.com"
+            placeholder="you@example.com"
             className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-neutral-700">
+          <label
+            htmlFor="auth-password"
+            className="block text-xs font-medium text-neutral-700"
+          >
             Password
           </label>
           <input
+            id="auth-password"
             type="password"
             required
+            autoComplete={
+              mode === "login" ? "current-password" : "new-password"
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"

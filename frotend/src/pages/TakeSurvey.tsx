@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "../lib/api";
-import type { QuestionCondition, QuestionType } from "./Builder";
+import { useAuth } from "../lib/auth";
+import type {
+  ConditionOperator,
+  QuestionCondition,
+  QuestionType,
+} from "./Builder";
 
 interface PublicQuestion {
   id: string;
@@ -16,7 +21,7 @@ interface PublicQuestion {
 interface PublicSurvey {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   status?: string;
   questions: PublicQuestion[];
 }
@@ -29,6 +34,7 @@ type AnswerValue = string | number | boolean | string[];
 
 interface TakeSurveyProps {
   surveyId: string;
+  onNavigate: (path: string) => void;
 }
 
 function evaluateCondition(
@@ -38,15 +44,25 @@ function evaluateCondition(
   if (!condition || !condition.questionId) return true;
 
   const actual = answers[condition.questionId];
-  const target = condition.value;
+  const target = String(condition.value).toLowerCase();
+  const op: ConditionOperator = condition.operator || "equals";
+
+  if (op === "contains") {
+    if (Array.isArray(actual)) {
+      return actual.some((item) => String(item).toLowerCase().includes(target));
+    }
+    if (actual === undefined || actual === null || actual === "") return false;
+    return String(actual).toLowerCase().includes(target);
+  }
 
   const matches = Array.isArray(actual)
-    ? actual.map(String).includes(String(target))
+    ? actual.map((v) => String(v).toLowerCase()).includes(target)
     : actual !== undefined &&
+      actual !== null &&
       actual !== "" &&
-      String(actual).toLowerCase() === String(target).toLowerCase();
+      String(actual).toLowerCase() === target;
 
-  return condition.operator === "not_equals" ? !matches : matches;
+  return op === "not_equals" ? !matches : matches;
 }
 
 function isAnswered(value: AnswerValue | undefined): boolean {
@@ -56,9 +72,9 @@ function isAnswered(value: AnswerValue | undefined): boolean {
   return true;
 }
 
-export function TakeSurvey({ surveyId }: TakeSurveyProps) {
+export function TakeSurvey({ surveyId, onNavigate }: TakeSurveyProps) {
+  const { isAuthenticated, user } = useAuth();
   const [survey, setSurvey] = useState<PublicSurvey | null>(null);
-  const [respondentEmail, setRespondentEmail] = useState("");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -72,46 +88,23 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
       setLoading(true);
       setError(null);
       try {
-        let data: SurveyLookupResponse | PublicSurvey;
-        try {
-          data = await apiRequest<SurveyLookupResponse | PublicSurvey>(
-            `/surveys/${surveyId}/public`,
-            { auth: false },
-          );
-        } catch (err) {
-          if (
-            err instanceof ApiError &&
-            (err.status === 404 || err.status === 405)
-          ) {
-            data = await apiRequest<SurveyLookupResponse | PublicSurvey>(
-              `/surveys/${surveyId}`,
-              { auth: false },
-            );
-          } else {
-            throw err;
-          }
-        }
-
+        const data = await apiRequest<SurveyLookupResponse | PublicSurvey>(
+          `/surveys/${surveyId}`,
+          { auth: false },
+        );
         if (cancelled) return;
         const resolved =
           data && typeof data === "object" && "survey" in data && data.survey
             ? data.survey
             : (data as PublicSurvey);
-
-        if (!resolved || !Array.isArray(resolved.questions)) {
-          throw new Error("Invalid survey response format");
-        }
-
-        const sorted = [...resolved.questions].sort(
+        const sorted = [...(resolved.questions ?? [])].sort(
           (a, b) => (a.order ?? 0) - (b.order ?? 0),
         );
         setSurvey({ ...resolved, questions: sorted });
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof ApiError
-              ? err.message
-              : "Survey not found or unavailable",
+            err instanceof ApiError ? err.message : "Failed to load survey",
           );
         }
       } finally {
@@ -154,6 +147,11 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
     if (!survey) return;
     setError(null);
 
+    if (!isAuthenticated) {
+      onNavigate("/login");
+      return;
+    }
+
     for (const q of visibleQuestions) {
       if (q.required && !isAnswered(answers[q.id])) {
         setError(`Please answer required question: "${q.title}"`);
@@ -172,25 +170,21 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
     try {
       await apiRequest(`/responses/${survey.id}`, {
         method: "POST",
-        auth: false,
+        auth: true,
         body: {
-          ...(respondentEmail.trim()
-            ? { respondentEmail: respondentEmail.trim() }
-            : {}),
+          ...(user?.email ? { respondentEmail: user.email } : {}),
           answers: formattedAnswers,
         },
       });
       setSubmitted(true);
     } catch (err) {
-      if (err instanceof ApiError) {
-        const details = err.details as
-          | { errors?: Array<{ message?: string }> }
-          | undefined;
-        const firstDetail = details?.errors?.[0]?.message;
-        setError(firstDetail ? `${err.message}: ${firstDetail}` : err.message);
-      } else {
-        setError("Failed to submit response");
+      if (err instanceof ApiError && err.status === 401) {
+        onNavigate("/login");
+        return;
       }
+      setError(
+        err instanceof ApiError ? err.message : "Failed to submit response",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -223,18 +217,26 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
         <p className="mt-1 text-xs text-neutral-600">
           Thank you for completing {survey.title}.
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            setAnswers({});
-            setRespondentEmail("");
-            setSubmitted(false);
-            setError(null);
-          }}
-          className="mt-4 rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100"
-        >
-          Submit another response
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate("/")}
+            className="rounded border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-100"
+          >
+            Back to feed
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAnswers({});
+              setSubmitted(false);
+              setError(null);
+            }}
+            className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+          >
+            Submit another response
+          </button>
+        </div>
       </div>
     );
   }
@@ -249,18 +251,20 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
           <p className="mt-1 text-xs text-neutral-600">{survey.description}</p>
         )}
 
-        <div className="mt-4 border-t border-neutral-100 pt-4">
-          <label className="block text-xs font-medium text-neutral-700">
-            Your Email (Optional)
-          </label>
-          <input
-            type="email"
-            value={respondentEmail}
-            onChange={(e) => setRespondentEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
-          />
-        </div>
+        {!isAuthenticated && (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs">
+            <span className="text-neutral-700">
+              Sign in is required to submit your response.
+            </span>
+            <button
+              type="button"
+              onClick={() => onNavigate("/login")}
+              className="rounded bg-neutral-900 px-3 py-1 font-medium text-white hover:bg-neutral-800"
+            >
+              Sign in
+            </button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -278,14 +282,12 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
               key={q.id}
               className="rounded border border-neutral-200 bg-white p-4"
             >
-              <div className="flex items-start justify-between gap-2">
-                <label className="text-sm font-medium text-neutral-900">
-                  {index + 1}. {q.title}
-                  {q.required && (
-                    <span className="ml-1 text-xs text-neutral-500">*</span>
-                  )}
-                </label>
-              </div>
+              <label className="text-sm font-medium text-neutral-900">
+                {index + 1}. {q.title}
+                {q.required && (
+                  <span className="ml-1 text-xs text-neutral-500">*</span>
+                )}
+              </label>
 
               {q.description && (
                 <p className="mt-1 text-xs text-neutral-500">{q.description}</p>
@@ -302,13 +304,51 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
                   />
                 )}
 
+                {q.type === "textarea" && (
+                  <textarea
+                    rows={3}
+                    required={q.required}
+                    value={typeof val === "string" ? val : ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value)}
+                    className="w-full rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                  />
+                )}
+
+                {q.type === "number" && (
+                  <input
+                    type="number"
+                    required={q.required}
+                    value={
+                      typeof val === "number" || typeof val === "string"
+                        ? String(val)
+                        : ""
+                    }
+                    onChange={(e) =>
+                      setAnswer(
+                        q.id,
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="w-full rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                  />
+                )}
+
+                {q.type === "date" && (
+                  <input
+                    type="date"
+                    required={q.required}
+                    value={typeof val === "string" ? val : ""}
+                    onChange={(e) => setAnswer(q.id, e.target.value)}
+                    className="rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                  />
+                )}
+
                 {q.type === "email" && (
                   <input
                     type="email"
                     required={q.required}
                     value={typeof val === "string" ? val : ""}
                     onChange={(e) => setAnswer(q.id, e.target.value)}
-                    placeholder="name@example.com"
                     className="w-full rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none"
                   />
                 )}
@@ -408,13 +448,23 @@ export function TakeSurvey({ surveyId }: TakeSurveyProps) {
       </div>
 
       <div className="mt-6 flex justify-end">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded bg-neutral-900 px-5 py-2 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-        >
-          {submitting ? "Submitting..." : "Submit Response"}
-        </button>
+        {isAuthenticated ? (
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded bg-neutral-900 px-5 py-2 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {submitting ? "Submitting..." : "Submit Response"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onNavigate("/login")}
+            className="rounded bg-neutral-900 px-5 py-2 text-xs font-medium text-white hover:bg-neutral-800"
+          >
+            Sign in to Submit
+          </button>
+        )}
       </div>
     </form>
   );
