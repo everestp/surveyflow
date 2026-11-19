@@ -1,8 +1,8 @@
 import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
-import { AppError } from "../utils/api-error";
-import logger from "../services/logger.service";
-import { getCorrelationId } from "../utils/helpers/request.helpers";
+import { AppError } from "../utils/api-error.js";
+import logger from "../services/logger.service.js";
+import { getCorrelationId } from "../utils/helpers/request.helpers.js";
 
 export const errorMiddleware: ErrorRequestHandler = (
   error,

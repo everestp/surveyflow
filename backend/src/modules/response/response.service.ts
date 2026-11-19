@@ -130,45 +130,51 @@ export class ResponseService {
     switch (question.type) {
       case "text":
       case "textarea":
-        if (typeof value !== "string") invalid();
+        if (typeof value !== "string") return invalid();
         break;
 
       case "email":
         if (
           typeof value !== "string" ||
           !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-        )
-          invalid();
+        ) {
+          return invalid();
+        }
         break;
 
       case "number":
       case "rating":
         if (typeof value !== "number" || !Number.isFinite(value)) {
-          invalid();
+          return invalid();
         }
-        if (question.type === "rating" && (value < 1 || value > 5)) invalid();
+        if (question.type === "rating" && (value < 1 || value > 5)) {
+          return invalid();
+        }
         break;
 
       case "single_choice":
-        if (typeof value !== "string" || !question.options?.includes(value))
-          invalid();
+        if (typeof value !== "string" || !question.options?.includes(value)) {
+          return invalid();
+        }
         break;
 
       case "multiple_choice":
         if (
           !Array.isArray(value) ||
           value.some((item) => !question.options?.includes(item))
-        )
-          invalid();
+        ) {
+          return invalid();
+        }
         break;
 
       case "date":
-        if (typeof value !== "string" || Number.isNaN(Date.parse(value)))
-          invalid();
+        if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+          return invalid();
+        }
         break;
 
       case "yes_no":
-        if (typeof value !== "boolean") invalid();
+        if (typeof value !== "boolean") return invalid();
         break;
     }
   }

@@ -6,7 +6,7 @@ export class ResponseController {
 
   submit: RequestHandler = async (req, res) => {
     const response = await this.responseService.submit(
-      req.params.surveyId!,
+      String(req.params.surveyId!),
       req.body,
     );
 
@@ -28,7 +28,7 @@ export class ResponseController {
     ).validatedQuery;
 
     const result = await this.responseService.getBySurvey(
-      req.params.surveyId!,
+      String(req.params.surveyId!),
       req.user!.id,
       query,
     );

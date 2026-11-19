@@ -1,7 +1,6 @@
-
 import "dotenv/config";
 import { pool } from "./pool.js";
-import { env } from "../config/env.js";
+
 import logger from "../services/logger.service.js";
 import { BcryptPasswordService } from "../services/password.service.js";
 
@@ -21,10 +20,9 @@ const seedDatabase = async (): Promise<void> => {
     );
   }
 
-  const existing = await pool.query(
-    "SELECT id FROM users WHERE email = $1",
-    [email],
-  );
+  const existing = await pool.query("SELECT id FROM users WHERE email = $1", [
+    email,
+  ]);
 
   if (existing.rowCount && existing.rowCount > 0) {
     logger.info("Admin user already exists", { email });
