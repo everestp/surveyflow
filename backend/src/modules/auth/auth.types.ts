@@ -1,6 +1,19 @@
+export type UserRole = "admin";
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
+  createdAt: Date;
+}
+
+export interface AuthUser extends User {
+  passwordHash: string;
+}
+
 export interface CreateUserInput {
   email: string;
-  password: string;
+  passwordHash: string;
 }
 
 export interface LoginInput {
@@ -8,24 +21,15 @@ export interface LoginInput {
   password: string;
 }
 
-export interface User {
-  id: string;
+export interface AuthTokenPayload {
+  sub: string;
   email: string;
-  password_hash: string;
-  role: "admin";
-  created_at: Date;
-  updated_at: Date;
+  role: UserRole;
 }
 
-export interface PublicUser {
-  id: string;
-  email: string;
-  role: "admin";
-  created_at: Date;
-}
-
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  role: "admin";
+export interface AuthResponse {
+  user: User;
+  accessToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
 }
