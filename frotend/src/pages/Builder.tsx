@@ -3,15 +3,20 @@ import { ApiError, apiRequest } from "../lib/api";
 
 export type QuestionType =
   | "text"
+  | "textarea"
+  | "number"
+  | "date"
   | "email"
   | "rating"
   | "single_choice"
   | "multiple_choice"
   | "yes_no";
 
+export type ConditionOperator = "equals" | "not_equals" | "contains";
+
 export interface QuestionCondition {
   questionId: string;
-  operator: "equals" | "not_equals";
+  operator: ConditionOperator;
   value: string | number | boolean;
 }
 
