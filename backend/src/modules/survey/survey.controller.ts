@@ -36,7 +36,7 @@ export class SurveyController {
 
   getById: RequestHandler = async (req, res) => {
     const survey = await this.surveyService.getById(
-      req.params.id!,
+      String(req.params.id!),
       req.user!.id,
     );
 
